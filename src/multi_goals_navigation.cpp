@@ -2,8 +2,6 @@
 #include <nav_msgs/GetPlan.h>
 #include <move_base_msgs/MoveBaseAction.h>
 
-
-
 namespace multi_navi{
 
   MultiNavi::MultiNavi(tf2_ros::Buffer& tf):
@@ -101,30 +99,129 @@ namespace multi_navi{
     return true;
   }
   
-  int getPathCost(geometry_msgs::PoseStamped start, geometry_msgs::PoseStamped goal)
+  int MultiNavi::getPathCost(geometry_msgs::PoseStamped start, geometry_msgs::PoseStamped goal)
   {
+    // full file the goal
     nav_msgs::GetPlan srv;
-    srv.request.
-    if (serviceClient.call(srv)) 
+    srv.request.goal = goal;
+    srv.request.start = start;
+    srv.request.tolerance = 0.5;
+    
+    if (planServiceClient.call(srv)) 
     {
-      //srv.response.plan.poses 为保存结果的容器，遍历取出
+      // get path from plan
       if (!srv.response.plan.poses.empty()) 
       {
-        for (int i =0; i < srv.response.plan.poses)  
-          forEach(const geometry_msgs::PoseStamped &p, srv.response.plan.poses) {
-ROS_INFO("x = %f, y = %f", p.pose.position.x, p.pose.position.y);
-}
-}
-else {
-ROS_WARN("Got empty plan");
-}
+        for (const geometry_msgs::PoseStamped &p : srv.response.plan.poses) 
+        {
+          ROS_INFO("x = %f, y = %f", p.pose.position.x, p.pose.position.y);
+        }
+      } else 
+      {
+        ROS_WARN("Got empty plan");
+      }
+    }
     return 0;
+  }
+  
+  geometry_msgs::PoseStamped MultiNavi::getCurrentPose()
+  {
+    geometry_msgs::PoseStamped t;
+    return t;
   }
   
   void MultiNavi::sortGoals()
   {
-    if (goals_.size() == 0 && goals_.size() == 1)
+    int n = goals_.size();
+    if (n == 0 && n == 1)
       return;
+    geometry_msgs::PoseStamped currentPose = getCurrentPose();
+    // the diagonal is the cost from currentPose to i
+    // the lower triangle is cost from goal i to goal j
+    int costs[n][n];
+    for (int i=0; i < n; i++)
+    {
+      for (int j=i; j < n; j++)
+      {
+        if (i == j)
+          costs[i][j] = getPathCost(currentPose, goals_[i].target_pose);
+        else
+        {
+          costs[i][j] = getPathCost(goals_[i].target_pose, goals_[j].target_pose);
+          costs[j][i] = costs[i][j];
+        }
+      }
+    }
+    // search for the shortest path
+    std::vector<move_base_msgs::MoveBaseGoal> newgoals(goals_);
+    goals_.clear();
     
   }
+  
+  int MultiNavi::getShortestPath(int current, int goals, double costs[N][N], double dis[M][N+1])
+  {
+    // 如果已经计算了距离，直接返回
+    if (dis[goals][current] != 0) return dis[goals][current];
+    // 如果只剩一个点，返回当前点到其距离
+    if (count1(goals)) 
+    {
+      return dis[goals][current] = costs[current][locate(goals)];
+    }
+    int mincost = 100000;
+   
+    // 遍历所有的点，从1开始到N-1
+    for (int i=0;i<N;i++)
+    {
+      // 在goals中
+      if (goals&(1<<i))
+      {
+	      // 递归计算最短距离
+	      double nextcost = getShortestPath(i, goals&(~(1<<i)), costs, dis);
+	      // 初始点特殊处理
+        double curcost = current == N ? costs[i][i] : costs[current][i];
+        if (nextcost + curcost < mincost)
+	      {
+	        mincost = nextcost + curcost;
+	      }
+	    }
+    }
+    return dis[goals][current] = mincost;
+  }
+
+  int MultiNavi::getpow2(int n)
+  {
+    int p = 1;
+    while (n > 0)
+    {
+      p = p << 1;
+      n--;
+    }
+    return p;
+  }
+
+  // 计算goals中点的个数
+  bool MultiNavi::count1(int s)
+  {
+    int count = 0;
+    while (s > 0)
+    {
+      s = s & (s-1);
+      count++;
+    }
+    return count == 1;
+  }
+
+  // goals中只有一个点时，得到那个点的位置
+  int MultiNavi::locate(int s)
+  {
+    int loc = 0;
+    while (s > 0)
+    {
+      if (s & 1) break;
+      s = s >> 1;
+      loc++;
+    }
+    return loc;
+  }
+
 }

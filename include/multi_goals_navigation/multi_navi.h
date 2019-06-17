@@ -8,6 +8,9 @@
 #include <actionlib/client/simple_action_client.h>
 #include <move_base_msgs/MoveBaseAction.h>
 
+#define N 5
+#define M 31
+
 namespace multi_navi{
     
   class MultiNavi{
@@ -51,6 +54,18 @@ namespace multi_navi{
        * @return cost of the path
        */
       int getPathCost(geometry_msgs::PoseStamped start, geometry_msgs::PoseStamped goal);
+
+      /**
+       * @brief get current pose
+       * @return current pose
+       */
+      geometry_msgs::PoseStamped getCurrentPose();
+      
+      int getShortestPath(int current, int goals, double costs[N][N], double dis[M][N+1]);
+      
+      int getpow2(int n);
+      bool count1(int s);
+      int locate(int s);
 
       //set up goals buffer
       std::vector<move_base_msgs::MoveBaseGoal> goals_;
